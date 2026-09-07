@@ -10,8 +10,8 @@ def print_dashboard(dss, solver):
     print("="*55)
     
     # Ambil parameter game dari pokerkit
-    pot_size = dss.state.total_pot
-    call_amt = dss.state.checking_or_calling_amount
+    pot_size = dss.get_pot_size()
+    call_amt = dss.get_call_amount()
     state_tensor = dss.generate_tensor_state().unsqueeze(0)
     
     # Masukkan ke Mesin Solver (Sprint 4)

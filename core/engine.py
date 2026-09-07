@@ -11,9 +11,19 @@ class DeepPokerDSS:
             (Automation.ANTE_POSTING, Automation.BET_COLLECTION, Automation.BLIND_OR_STRADDLE_POSTING),
             True, 0, (bb_amount//2, bb_amount), bb_amount, (starting_stack, starting_stack), 2
         )
+        
+        # FITUR BARU: Memori string murni agar kebal dari perubahan API PokerKit
+        self.my_hole_cards = []
+        self.my_board_cards = []
+
+    def get_pot_size(self):
+        return (self.starting_stack * 2) - sum(self.state.stacks)
+
+    def get_call_amount(self):
+        if not self.state.bets: return 0
+        return max(self.state.bets) - min(self.state.bets)
 
     def parse_quick_input(self, command_string):
-        """Memproses input kilat dari pengguna."""
         parts = command_string.strip().split()
         if not parts: return False
         
@@ -21,9 +31,14 @@ class DeepPokerDSS:
         try:
             if cmd == 'h':
                 self.state.deal_hole(parts[1])
+                # Pecah input 'AhKh' menjadi list string murni ['Ah', 'Kh']
+                self.my_hole_cards = [parts[1][i:i+2] for i in range(0, len(parts[1]), 2)]
                 print(f"[ENGINE] Kartu tangan dibagikan: {parts[1]}")
             elif cmd == 'b':
                 self.state.deal_board(parts[1])
+                # Pecah input flop '9hTs9s' menjadi ['9h', 'Ts', '9s']
+                new_board = [parts[1][i:i+2] for i in range(0, len(parts[1]), 2)]
+                self.my_board_cards.extend(new_board)
                 print(f"[ENGINE] Kartu meja dibuka: {parts[1]}")
             elif cmd == 'bet':
                 amount = int(parts[1])
@@ -41,20 +56,25 @@ class DeepPokerDSS:
             return False
 
     def generate_tensor_state(self):
-        """Mengubah kondisi meja menjadi PyTorch Tensor 106-dimensi."""
+        """Mengubah kondisi meja menjadi PyTorch Tensor 106-dimensi (Murni pakai input lokal)"""
         hole_tensor = torch.zeros(52)
         board_tensor = torch.zeros(52)
         
-        if self.state.hole_cards and len(self.state.hole_cards) > 0:
-            for card in self.state.hole_cards[0]:
-                idx = card.rank.index * 4 + card.suit.index
-                hole_tensor[idx] = 1.0
-                
-        for card in self.state.board_cards:
-            idx = card.rank.index * 4 + card.suit.index
-            board_tensor[idx] = 1.0
+        ranks = '23456789TJQKA'
+        suits = 'cdhs'
+        
+        # Konversi array string kita sendiri ke indeks tensor (Anti Error)
+        for card_str in self.my_hole_cards:
+            r_idx = ranks.index(card_str[0].upper())
+            s_idx = suits.index(card_str[1].lower())
+            hole_tensor[r_idx * 4 + s_idx] = 1.0
+            
+        for card_str in self.my_board_cards:
+            r_idx = ranks.index(card_str[0].upper())
+            s_idx = suits.index(card_str[1].lower())
+            board_tensor[r_idx * 4 + s_idx] = 1.0
 
-        pot = torch.tensor([self.state.total_pot / (self.starting_stack * 2)], dtype=torch.float32)
-        to_call = torch.tensor([self.state.checking_or_calling_amount / self.starting_stack], dtype=torch.float32)
+        pot = torch.tensor([self.get_pot_size() / (self.starting_stack * 2)], dtype=torch.float32)
+        to_call = torch.tensor([self.get_call_amount() / self.starting_stack], dtype=torch.float32)
         
         return torch.cat([hole_tensor, board_tensor, pot, to_call])
