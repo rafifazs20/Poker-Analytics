@@ -1,0 +1,10 @@
+Hand #12345 - Blinds $10/$20
+Dealt to Hero [Ah Kh]
+Villain raises to 2000
+Hero folds
+
+Hand #12346 - Blinds $10/$20
+Dealt to Hero [7c 8c]
+Board [9h Ts 9s]
+Villain raises to 500
+Hero calls
